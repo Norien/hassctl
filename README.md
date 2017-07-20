@@ -120,3 +120,74 @@ HASS_SERVICE=home-assistant.service
 
 OZW_LOG=$HASS_CONFIG/OZW_Log.txt
 ```
+
+## Example YAML Package
+hassctl must have sudo access in the sudoers file. ```homeassistant ALL=(ALL) NOPASSWD: /usr/local/bin/hassctl```
+```
+homeassistant:
+  customize:
+    script.hassctl_update_ha:
+      friendly_name: Update Home Assistant
+      icon: mdi:package-variant
+    script.hassctl_update:
+      friendly_name: Update hassctl
+      icon: mdi:package-variant
+    script.hassctl_restart_ha:
+      friendly_name: Restart Home Assistant
+      icon: mdi:restart
+    sensor.hassctl_version:
+      friendly_name: Version
+###### STATE CARD #######################################################
+group:
+  hassctl:
+    name: hassctl
+    control: hidden
+    entities:
+      - script.hassctl_restart_ha
+      - script.hassctl_update_ha
+      - script.hassctl_update
+      - sensor.hassctl_version
+#########################################################################
+script:
+  hassctl_restart_ha:
+    sequence:
+      - service: shell_command.hassctl_restart_ha
+  hassctl_update_ha:
+    sequence:
+      - service: shell_command.hassctl_update_ha
+  hassctl_update:
+    sequence:
+      - service: shell_command.hassctl_update
+#########################################################################
+shell_command:
+  hassctl_restart_ha: 'sudo hassctl restart'
+  hassctl_update_ha: 'sudo bash /home/homeassistant/.homeassistant/shell/update_ha.sh </dev/null >> /home/homeassistant/.homeassistant/update_ha.log 2>&1 &'
+  hassctl_update: 'sudo hassctl update-hassctl'
+#########################################################################
+sensor:
+  ###### VERSIONS
+    - platform: command_line
+      name: hassctl Current Version
+      command: curl -s  https://raw.githubusercontent.com/dale3h/hassctl/master/hassctl 2> /dev/null | head -3 | tail -1 | cut -d# -f2
+      value_template: '{{value[17:-1]}}'
+    - platform: command_line
+      name: hassctl Installed Version
+      command: cat /usr/local/bin/hassctl | head -3 | tail -1 | cut -d# -f2
+      value_template: '{{value[17:-1]}}'
+  ###### Single line Version
+    - platform: template
+      sensors:
+        hassctl_version:
+          value_template: "{%- if states.sensor.hassctl_current_version.state == states.sensor.hassctl_installed_version.state-%}{{states.sensor.hassctl_installed_version.state}} {% else %}{{states.sensor.hassctl_current_version.state}} Available{% endif%}"
+          icon_template: >-
+            {% if states.sensor.hassctl_current_version.state == states.sensor.hassctl_installed_version.state %}
+              mdi:checkbox-marked
+            {% else %}
+              mdi:checkbox-blank-outline
+            {% endif %}
+```
+### update_ha.sh
+```
+#!/bin/bash
+hassctl update-hass && hassctl restart
+```
